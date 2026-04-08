@@ -33,6 +33,7 @@ EXPOSE 3000
 
 USER 65532:65532
 
-# Use absolute paths: with CMD ["node","app.js"], slnodejs can mis-resolve argv and invoke `-- /app/node app.js`
-# (treating `/app/node` as the script). Wolfi/Chainguard ships Node at /usr/bin/node.
-CMD ["/usr/bin/node", "/app/app.js"]
+# Main script must be an absolute path so slnodejs does not mis-resolve relative `app.js`.
+# Use bare `node` (PATH); do NOT use CMD ["/usr/bin/node", "/app/app.js"] — that yields restArgv
+# ['/usr/bin/node','/app/app.js'] and SeaLights runs the first as JS (`SyntaxError` on ELF bytes).
+CMD ["node", "/app/app.js"]
