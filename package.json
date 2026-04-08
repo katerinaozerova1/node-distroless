@@ -1,0 +1,12 @@
+{
+  "name": "distroless-sealights-repro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CS-5227 repro: NODE_OPTIONS preload using execSync fails on distroless (no /bin/sh)",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
