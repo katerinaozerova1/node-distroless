@@ -1,12 +1,17 @@
-# Debian-based image includes /bin/sh — execSync preload works (contrast with distroless)
-FROM node:20-bookworm-slim
+# Same Capital One–style onboarding as Dockerfile, but final image is Debian-based (includes /bin/sh).
+# Useful contrast when debugging distroless-only failures.
 
+FROM node:20-bookworm-slim
 WORKDIR /app
 
-COPY package.json app.js fake-sl-cli.js sltoken.txt buildSessionId ./
-COPY preload-sealights-execsync.js preload-active.js
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
-ENV NODE_OPTIONS="-r /app/preload-active.js"
+COPY app.js ./
+
+ENV NODE_OPTIONS="-r /app/node_modules/slnodejs/lib/preload.js"
+ENV SL_labId="cs5227-repro-dev"
+ENV HTTP_PROXY="http://aws-proxy-dev.cloud.capitalone.com:8099"
 ENV PORT=3000
 EXPOSE 3000
 
