@@ -16,5 +16,5 @@ ENV HTTP_PROXY="http://aws-proxy-dev.cloud.capitalone.com:8099"
 ENV PORT=3000
 EXPOSE 3000
 
-# Official node:20-bookworm-slim uses Node at /usr/local/bin/node. Absolute /app/app.js avoids slnodejs argv bugs.
-CMD ["/usr/local/bin/node", "/app/app.js"]
+# Absolute app path; bare `node` from PATH (see main Dockerfile comment — do not pass full node path + app).
+CMD ["node", "/app/app.js"]
