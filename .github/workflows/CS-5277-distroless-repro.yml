@@ -59,14 +59,50 @@ jobs:
           SL_TOKEN: ${{ secrets.SL_TOKEN }}
           HTTP_PROXY: ""
         run: |
+          set -euo pipefail
           cid=$(docker run -d -p 3000:3000 \
             -e SL_TOKEN \
             -e SL_BUILD_SESSION_ID \
             -e SL_labId=cs5227-repro-dev \
             -e HTTP_PROXY \
             sealights-sample:distroless)
-          sleep 3
-          curl -fsS http://127.0.0.1:3000/health
+
+          echo "container: $cid"
+          sleep 2
+
+          if [ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null)" != "true" ]; then
+            echo "::error::Container is not running. Exit code / state:"
+            docker inspect -f '{{.State.ExitCode}} {{.State.Error}}' "$cid" || true
+            echo "--- docker logs ---"
+            docker logs "$cid" 2>&1 || true
+            docker rm -f "$cid" 2>/dev/null || true
+            exit 1
+          fi
+
+          ok=0
+          for i in $(seq 1 45); do
+            if curl -fsS --connect-timeout 2 --max-time 5 "http://127.0.0.1:3000/health" 2>/dev/null; then
+              ok=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null)" != "true" ]; then
+              echo "::error::Container exited during health wait (iteration $i)."
+              echo "--- docker logs ---"
+              docker logs "$cid" 2>&1 || true
+              docker rm -f "$cid" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "::error::Health check timed out after 45s."
+            echo "--- docker logs ---"
+            docker logs "$cid" 2>&1 || true
+            docker rm -f "$cid" 2>/dev/null || true
+            exit 1
+          fi
+
           docker rm -f "$cid"
 
   slnodejs-debian:
@@ -116,12 +152,46 @@ jobs:
           SL_TOKEN: ${{ secrets.SL_TOKEN }}
           HTTP_PROXY: ""
         run: |
+          set -euo pipefail
           cid=$(docker run -d -p 3002:3000 \
             -e SL_TOKEN \
             -e SL_BUILD_SESSION_ID \
             -e SL_labId=cs5227-repro-dev \
             -e HTTP_PROXY \
             sealights-sample:debian)
-          sleep 3
-          curl -fsS http://127.0.0.1:3002/health
+
+          echo "container: $cid"
+          sleep 2
+
+          if [ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null)" != "true" ]; then
+            echo "::error::Container is not running."
+            docker inspect -f '{{.State.ExitCode}} {{.State.Error}}' "$cid" || true
+            echo "--- docker logs ---"
+            docker logs "$cid" 2>&1 || true
+            docker rm -f "$cid" 2>/dev/null || true
+            exit 1
+          fi
+
+          ok=0
+          for i in $(seq 1 45); do
+            if curl -fsS --connect-timeout 2 --max-time 5 "http://127.0.0.1:3002/health" 2>/dev/null; then
+              ok=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null)" != "true" ]; then
+              echo "::error::Container exited during health wait."
+              docker logs "$cid" 2>&1 || true
+              docker rm -f "$cid" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "::error::Health check timed out."
+            docker logs "$cid" 2>&1 || true
+            docker rm -f "$cid" 2>/dev/null || true
+            exit 1
+          fi
+
           docker rm -f "$cid"
