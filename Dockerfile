@@ -1,31 +1,28 @@
 # Capital One–style containerized Node onboarding (see c1_sealights_implementation.txt):
 # - slnodejs in package.json / npm ci
-# - NODE_OPTIONS=-r ./node_modules/slnodejs/lib/preload.js
+# - NODE_OPTIONS=-r …/node_modules/slnodejs/lib/preload.js
 # - SL_labId, HTTP_PROXY (Bogiefile container_env in real deployments)
-# - Do NOT bake tokens into the image. Pass SL_TOKEN and SL_BUILD_SESSION_ID at runtime.
-#   In a full pipeline, SL_BUILD_SESSION_ID is produced by `npx slnodejs config` (writes buildSessionId); the same id is used for scan, tests, and runtime per SeaLights Node agent docs.
+# - Pass SL_TOKEN and SL_BUILD_SESSION_ID at runtime (see GITHUB-ACTIONS.txt).
 #
-# slnodejs preload reads SL_TOKEN / SL_BUILD_SESSION_ID from the environment (see node_modules/slnodejs/lib/preload.js).
-#
-# Repository layout: app.js and package.json sit at the repo root. WORKDIR /app copies them to /app/app.js (not repo/app/app.js).
-#
-# Build node_modules on Chainguard (Wolfi), not Debian — slnodejs may ship native bits; mixing Debian-built
-# modules with a Wolfi runtime often crashes Node before listen(), which shows up as curl connection refused.
+# IMPORTANT: Do not use WORKDIR /app with CMD ["node", "/app/app.js"]. Node/slnodejs can treat the
+# token `node` as a path under cwd and produce argv ['/usr/bin/node', '/app/node', '/app/app.js'],
+# so SeaLights runs `-- /app/node /app/app.js` and fails with MODULE_NOT_FOUND. Use WORKDIR /srv and
+# /srv/app.js so nothing resolves to `/app/node`.
+
+# Build node_modules on Chainguard (Wolfi), not Debian — native bits must match the runtime OS.
 
 FROM cgr.dev/chainguard/node:latest-dev AS deps
-WORKDIR /app
+WORKDIR /srv
 USER root
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Chainguard runtime user is UID/GID 65532; some tags omit the name "nonroot" in passwd, which breaks
-# `USER nonroot`. Use numeric ids (same as typical distroless non-root).
 FROM cgr.dev/chainguard/node:latest
-WORKDIR /app
-COPY --chown=65532:65532 --from=deps /app/node_modules ./node_modules
+WORKDIR /srv
+COPY --chown=65532:65532 --from=deps /srv/node_modules ./node_modules
 COPY --chown=65532:65532 package.json app.js ./
 
-ENV NODE_OPTIONS="-r /app/node_modules/slnodejs/lib/preload.js"
+ENV NODE_OPTIONS="-r /srv/node_modules/slnodejs/lib/preload.js"
 ENV SL_labId="cs5227-repro-dev"
 ENV HTTP_PROXY="http://aws-proxy-dev.cloud.capitalone.com:8099"
 ENV PORT=3000
@@ -33,7 +30,4 @@ EXPOSE 3000
 
 USER 65532:65532
 
-# Main script must be an absolute path so slnodejs does not mis-resolve relative `app.js`.
-# Use bare `node` (PATH); do NOT use CMD ["/usr/bin/node", "/app/app.js"] — that yields restArgv
-# ['/usr/bin/node','/app/app.js'] and SeaLights runs the first as JS (`SyntaxError` on ELF bytes).
-CMD ["node", "/app/app.js"]
+CMD ["node", "/srv/app.js"]
