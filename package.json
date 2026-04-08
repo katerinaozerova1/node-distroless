@@ -2,11 +2,15 @@
   "name": "distroless-sealights-repro",
   "version": "1.0.0",
   "private": true,
-  "description": "CS-5227 repro: NODE_OPTIONS preload using execSync fails on distroless (no /bin/sh)",
+  "description": "Sample Node app with slnodejs + distroless image; onboarding runs in GitHub Actions",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "test:sealights": "node -e \"console.log('placeholder: wire to your unit test runner for 7PS'); process.exit(0)\""
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
+  },
+  "dependencies": {
+    "slnodejs": "6.1.1159"
   }
 }
