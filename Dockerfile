@@ -6,6 +6,8 @@
 #   In a full pipeline, SL_BUILD_SESSION_ID is produced by `npx slnodejs config` (writes buildSessionId); the same id is used for scan, tests, and runtime per SeaLights Node agent docs.
 #
 # slnodejs preload reads SL_TOKEN / SL_BUILD_SESSION_ID from the environment (see node_modules/slnodejs/lib/preload.js).
+#
+# Repository layout: app.js and package.json sit at the repo root. WORKDIR /app copies them to /app/app.js (not repo/app/app.js).
 
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
@@ -27,4 +29,5 @@ EXPOSE 3000
 
 USER 65532:65532
 
-CMD ["node", "/app/app.js"]
+# Relative to WORKDIR /app — same file as ./app.js at repository root.
+CMD ["node", "app.js"]
