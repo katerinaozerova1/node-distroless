@@ -1,0 +1,127 @@
+# Sealights Node agent onboarding: slnodejs config → buildSessionId → Docker (distroless or Debian).
+#
+# Secret: SL_TOKEN
+# Optional variable: SL_APPNAME (defaults to cs5227-repro)
+#
+# If a preload or agent path still depends on /bin/sh (e.g. legacy patterns), failure will show when the
+# distroless image runs—no separate “simulation” is required.
+
+name: Sealights Node distroless sample
+
+on:
+  workflow_dispatch:
+
+jobs:
+  slnodejs-distroless:
+    name: slnodejs + Chainguard distroless
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies (slnodejs CLI for config)
+        run: npm ci
+
+      - name: Require SL_TOKEN secret
+        env:
+          SL_TOKEN: ${{ secrets.SL_TOKEN }}
+        run: |
+          if [ -z "$SL_TOKEN" ]; then
+            echo "::error::Add repository secret SL_TOKEN (Sealights token). Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Create build session (npx slnodejs config)
+        env:
+          SL_TOKEN: ${{ secrets.SL_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$SL_TOKEN" > sltoken.txt
+          npx slnodejs config \
+            --tokenfile ./sltoken.txt \
+            --appname "${{ vars.SL_APPNAME || 'cs5227-repro' }}" \
+            --branch "${{ github.ref_name }}" \
+            --build "gha-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "SL_BUILD_SESSION_ID=$(cat buildSessionId)" >> "$GITHUB_ENV"
+          rm -f sltoken.txt buildSessionId
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (Dockerfile)
+        run: docker build -t sealights-sample:distroless .
+
+      - name: Run container and curl /health
+        env:
+          SL_TOKEN: ${{ secrets.SL_TOKEN }}
+          HTTP_PROXY: ""
+        run: |
+          cid=$(docker run -d -p 3000:3000 \
+            -e SL_TOKEN \
+            -e SL_BUILD_SESSION_ID \
+            -e SL_labId=cs5227-repro-dev \
+            -e HTTP_PROXY \
+            sealights-sample:distroless)
+          sleep 3
+          curl -fsS http://127.0.0.1:3000/health
+          docker rm -f "$cid"
+
+  slnodejs-debian:
+    name: slnodejs + Debian slim (reference)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies (slnodejs CLI for config)
+        run: npm ci
+
+      - name: Require SL_TOKEN secret
+        env:
+          SL_TOKEN: ${{ secrets.SL_TOKEN }}
+        run: |
+          if [ -z "$SL_TOKEN" ]; then
+            echo "::error::Add repository secret SL_TOKEN (Sealights token). Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Create build session (npx slnodejs config)
+        env:
+          SL_TOKEN: ${{ secrets.SL_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$SL_TOKEN" > sltoken.txt
+          npx slnodejs config \
+            --tokenfile ./sltoken.txt \
+            --appname "${{ vars.SL_APPNAME || 'cs5227-repro' }}" \
+            --branch "${{ github.ref_name }}" \
+            --build "gha-${{ github.run_id }}-${{ github.run_attempt }}-deb"
+          echo "SL_BUILD_SESSION_ID=$(cat buildSessionId)" >> "$GITHUB_ENV"
+          rm -f sltoken.txt buildSessionId
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (Dockerfile.debian)
+        run: docker build -f Dockerfile.debian -t sealights-sample:debian .
+
+      - name: Run container and curl /health
+        env:
+          SL_TOKEN: ${{ secrets.SL_TOKEN }}
+          HTTP_PROXY: ""
+        run: |
+          cid=$(docker run -d -p 3002:3000 \
+            -e SL_TOKEN \
+            -e SL_BUILD_SESSION_ID \
+            -e SL_labId=cs5227-repro-dev \
+            -e HTTP_PROXY \
+            sealights-sample:debian)
+          sleep 3
+          curl -fsS http://127.0.0.1:3002/health
+          docker rm -f "$cid"
