@@ -1,4 +1,5 @@
-# Sealights Node agent onboarding: slnodejs config → buildSessionId → Docker (distroless or Debian).
+# Sealights Node agent onboarding: slnodejs config → slnodejs scan → Docker (distroless or Debian).
+# Scan step: https://docs.sealights.io/knowledgebase/setup-and-configuration/sealights-agents-and-plugins/node.js-agent/backend-server-application/scanning-a-build
 #
 # Secret: SL_TOKEN
 # Optional variable: SL_APPNAME (defaults to cs5227-repro)
@@ -46,6 +47,20 @@ jobs:
             --appname "${{ vars.SL_APPNAME || 'cs5227-repro' }}" \
             --branch "${{ github.ref_name }}" \
             --build "gha-${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Scan build (npx slnodejs scan)
+        run: |
+          set -euo pipefail
+          npx slnodejs scan \
+            --tokenfile ./sltoken.txt \
+            --buildsessionidfile buildSessionId \
+            --workspacepath "." \
+            --scm git \
+            --es6Modules
+
+      - name: Export SL_BUILD_SESSION_ID for Docker run
+        run: |
+          set -euo pipefail
           echo "SL_BUILD_SESSION_ID=$(cat buildSessionId)" >> "$GITHUB_ENV"
           rm -f sltoken.txt buildSessionId
 
@@ -139,6 +154,20 @@ jobs:
             --appname "${{ vars.SL_APPNAME || 'cs5227-repro' }}" \
             --branch "${{ github.ref_name }}" \
             --build "gha-${{ github.run_id }}-${{ github.run_attempt }}-deb"
+
+      - name: Scan build (npx slnodejs scan)
+        run: |
+          set -euo pipefail
+          npx slnodejs scan \
+            --tokenfile ./sltoken.txt \
+            --buildsessionidfile buildSessionId \
+            --workspacepath "." \
+            --scm git \
+            --es6Modules
+
+      - name: Export SL_BUILD_SESSION_ID for Docker run
+        run: |
+          set -euo pipefail
           echo "SL_BUILD_SESSION_ID=$(cat buildSessionId)" >> "$GITHUB_ENV"
           rm -f sltoken.txt buildSessionId
 
