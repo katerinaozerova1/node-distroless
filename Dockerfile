@@ -33,5 +33,6 @@ EXPOSE 3000
 
 USER 65532:65532
 
-# Relative to WORKDIR /app — same file as ./app.js at repository root.
-CMD ["node", "app.js"]
+# Use absolute paths: with CMD ["node","app.js"], slnodejs can mis-resolve argv and invoke `-- /app/node app.js`
+# (treating `/app/node` as the script). Wolfi/Chainguard ships Node at /usr/bin/node.
+CMD ["/usr/bin/node", "/app/app.js"]
