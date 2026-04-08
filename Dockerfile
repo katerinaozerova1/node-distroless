@@ -8,9 +8,13 @@
 # slnodejs preload reads SL_TOKEN / SL_BUILD_SESSION_ID from the environment (see node_modules/slnodejs/lib/preload.js).
 #
 # Repository layout: app.js and package.json sit at the repo root. WORKDIR /app copies them to /app/app.js (not repo/app/app.js).
+#
+# Build node_modules on Chainguard (Wolfi), not Debian — slnodejs may ship native bits; mixing Debian-built
+# modules with a Wolfi runtime often crashes Node before listen(), which shows up as curl connection refused.
 
-FROM node:20-bookworm-slim AS deps
+FROM cgr.dev/chainguard/node:latest-dev AS deps
 WORKDIR /app
+USER root
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
