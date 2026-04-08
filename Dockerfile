@@ -12,10 +12,12 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
+# Chainguard runtime user is UID/GID 65532; some tags omit the name "nonroot" in passwd, which breaks
+# `USER nonroot`. Use numeric ids (same as typical distroless non-root).
 FROM cgr.dev/chainguard/node:latest
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --chown=nonroot:nonroot package.json app.js ./
+COPY --chown=65532:65532 --from=deps /app/node_modules ./node_modules
+COPY --chown=65532:65532 package.json app.js ./
 
 ENV NODE_OPTIONS="-r /app/node_modules/slnodejs/lib/preload.js"
 ENV SL_labId="cs5227-repro-dev"
@@ -23,6 +25,6 @@ ENV HTTP_PROXY="http://aws-proxy-dev.cloud.capitalone.com:8099"
 ENV PORT=3000
 EXPOSE 3000
 
-USER nonroot:nonroot
+USER 65532:65532
 
 CMD ["node", "/app/app.js"]
